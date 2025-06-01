@@ -56,7 +56,7 @@ const Planet = memo(({ track, index, radius, speed, delay }) => {
           willChange: "transform",
           backfaceVisibility: "hidden",
           transition: "border-color 0.3s ease",
-          pointerEvents: "none", // This allows mouse events to pass through to inner orbits
+          pointerEvents: "none",
         }}
       >
         {/* Planet */}
@@ -92,7 +92,7 @@ const Planet = memo(({ track, index, radius, speed, delay }) => {
             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             cursor: "pointer",
             zIndex: isHovered ? 100 : 1,
-            pointerEvents: "auto", // Ensure planets can receive mouse events
+            pointerEvents: "auto",
           }}
           className="planet"
           onMouseEnter={() => {
@@ -106,7 +106,7 @@ const Planet = memo(({ track, index, radius, speed, delay }) => {
         />
       </div>
 
-      {/* Tooltip - Positioned outside the rotating orbit container */}
+      {/* Tooltip */}
       {isHovered && (
         <div
           style={{
@@ -147,7 +147,6 @@ const StarryBackground = () => {
   const [stars, setStars] = useState([]);
 
   useEffect(() => {
-    // Generate random stars
     const generateStars = () => {
       const starArray = [];
       for (let i = 0; i < 200; i++) {
@@ -205,7 +204,6 @@ const StarryBackground = () => {
 // Login Screen Component
 const LoginScreen = () => {
   const handleLogin = () => {
-    // Redirect to your Render backend's login endpoint
     window.location.href = "https://spotify-solar-system-backend.onrender.com/login";
   };
 
@@ -298,6 +296,104 @@ const LoginScreen = () => {
   );
 };
 
+// Debug Panel Component
+const DebugPanel = ({ tracks, error, userProfile, accessToken }) => {
+  const [showDebug, setShowDebug] = useState(false);
+
+  if (!showDebug) {
+    return (
+      <button
+        onClick={() => setShowDebug(true)}
+        style={{
+          position: "absolute",
+          bottom: "20px",
+          left: "20px",
+          padding: "8px 12px",
+          backgroundColor: "rgba(31, 31, 63, 0.8)",
+          color: "white",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontSize: "12px",
+          zIndex: 10,
+        }}
+      >
+        Debug Info
+      </button>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: "20px",
+        left: "20px",
+        padding: "15px",
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        color: "white",
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+        borderRadius: "12px",
+        fontSize: "12px",
+        maxWidth: "300px",
+        maxHeight: "400px",
+        overflow: "auto",
+        zIndex: 10,
+        backdropFilter: "blur(10px)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+        <strong>Debug Info</strong>
+        <button
+          onClick={() => setShowDebug(false)}
+          style={{
+            background: "none",
+            border: "none",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "16px",
+          }}
+        >
+          ×
+        </button>
+      </div>
+      
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Token Status:</strong> {accessToken ? "✅ Present" : "❌ Missing"}
+      </div>
+      
+      <div style={{ marginBottom: "10px" }}>
+        <strong>User Profile:</strong> {userProfile ? "✅ Loaded" : "❌ Missing"}
+        {userProfile && (
+          <div style={{ marginLeft: "10px", fontSize: "11px" }}>
+            Name: {userProfile.display_name}<br/>
+            ID: {userProfile.id}
+          </div>
+        )}
+      </div>
+      
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Tracks Count:</strong> {tracks?.length || 0}
+        {tracks?.length > 0 && (
+          <div style={{ marginLeft: "10px", fontSize: "11px" }}>
+            {tracks.map((track, i) => (
+              <div key={i}>
+                {i + 1}. {track.name} - {track.artist}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {error && (
+        <div style={{ marginBottom: "10px" }}>
+          <strong>Error:</strong> <span style={{ color: "#ff6b6b" }}>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [tracks, setTracks] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
@@ -306,20 +402,26 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Backend base URL - change this to your Render URL
   const BACKEND_URL = "https://spotify-solar-system-backend.onrender.com";
 
   useEffect(() => {
-    // Check for access token in URL params
     const params = new URLSearchParams(window.location.search);
     const token = params.get("access_token");
+    const error_param = params.get("error");
+
+    if (error_param) {
+      console.error("OAuth error:", error_param);
+      setError(`Authentication error: ${error_param}`);
+      setLoading(false);
+      return;
+    }
 
     if (token) {
       console.log("Access token found:", token.substring(0, 10) + "...");
       setAccessToken(token);
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
+      console.log("No access token found in URL params");
       setLoading(false);
     }
   }, []);
@@ -332,7 +434,10 @@ function App() {
       setError(null);
 
       try {
-        // Fetch user profile
+        console.log(`Fetching data with time range: ${timeRange}`);
+        
+        // Fetch user profile first
+        console.log("Fetching user profile...");
         const profileResponse = await fetch(
           `${BACKEND_URL}/me?access_token=${accessToken}`
         );
@@ -342,45 +447,81 @@ function App() {
           console.log("User Profile Data:", profileData);
           setUserProfile(profileData);
         } else {
-          console.error("Failed to fetch user profile");
+          const profileError = await profileResponse.text();
+          console.error("Failed to fetch user profile:", profileResponse.status, profileError);
         }
 
-        // Fetch top tracks
-        const tracksResponse = await fetch(
-          `${BACKEND_URL}/top-tracks?access_token=${accessToken}&time_range=${timeRange}`
-        );
+        // Fetch top tracks with better error handling
+        console.log("Fetching top tracks...");
+        const tracksUrl = `${BACKEND_URL}/top-tracks?access_token=${accessToken}&time_range=${timeRange}`;
+        console.log("Request URL:", tracksUrl);
+        
+        const tracksResponse = await fetch(tracksUrl);
+        
+        console.log("Tracks response status:", tracksResponse.status);
+        console.log("Tracks response headers:", Object.fromEntries(tracksResponse.headers.entries()));
 
         if (!tracksResponse.ok) {
-          throw new Error(
-            `Failed to fetch top tracks: ${tracksResponse.status}`
-          );
+          const errorText = await tracksResponse.text();
+          console.error("Tracks API Error:", {
+            status: tracksResponse.status,
+            statusText: tracksResponse.statusText,
+            body: errorText
+          });
+          throw new Error(`HTTP ${tracksResponse.status}: ${errorText}`);
         }
 
         const tracksData = await tracksResponse.json();
-        console.log("=== BACKEND RESPONSE ===");
-        console.log("Tracks Data:", tracksData);
+        console.log("=== RAW BACKEND RESPONSE ===");
+        console.log("Type:", typeof tracksData);
+        console.log("Is Array:", Array.isArray(tracksData));
+        console.log("Length:", tracksData?.length);
+        console.log("Full Data:", tracksData);
 
-        // The backend returns the data directly as an array
-        if (Array.isArray(tracksData) && tracksData.length > 0) {
-          const mappedTracks = tracksData.slice(0, 7).map((track, index) => ({
-            id: track.id || `track-${index}`,
-            name: track.name || "Unknown Track",
-            artist: track.artist || "Unknown Artist",
-            albumImage: track.albumImage || "",
-          }));
-
-          console.log("Mapped tracks:", mappedTracks);
-          setTracks(mappedTracks);
+        // Handle different response formats
+        let processedTracks = [];
+        
+        if (Array.isArray(tracksData)) {
+          processedTracks = tracksData;
+        } else if (tracksData?.items && Array.isArray(tracksData.items)) {
+          processedTracks = tracksData.items;
+        } else if (tracksData?.tracks && Array.isArray(tracksData.tracks)) {
+          processedTracks = tracksData.tracks;
         } else {
-          console.warn("No tracks received from backend or empty array");
-          setTracks([]);
+          console.warn("Unexpected data format:", tracksData);
+          throw new Error("Unexpected response format from backend");
+        }
+
+        console.log("Processed tracks:", processedTracks);
+
+        if (processedTracks.length === 0) {
+          console.warn("No tracks in response");
           setError(
-            "No top tracks available. Try listening to more music on Spotify!"
+            `No tracks found for ${timeRange.replace('_', ' ')}. Try a different time range or listen to more music on Spotify!`
           );
+          setTracks([]);
+        } else {
+          const mappedTracks = processedTracks.slice(0, 7).map((track, index) => {
+            console.log(`Processing track ${index}:`, track);
+            return {
+              id: track.id || `track-${index}`,
+              name: track.name || "Unknown Track",
+              artist: track.artist || track.artists?.[0]?.name || "Unknown Artist",
+              albumImage: track.albumImage || track.album?.images?.[0]?.url || "",
+            };
+          });
+
+          console.log("Final mapped tracks:", mappedTracks);
+          setTracks(mappedTracks);
+          setError(null);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
-        setError("Failed to fetch your music data. Please try again.");
+        console.error("Detailed error fetching data:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        setError(`Failed to fetch data: ${error.message}`);
         setTracks([]);
       } finally {
         setLoading(false);
@@ -451,7 +592,6 @@ function App() {
         fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
       }}
     >
-      {/* Starry Background */}
       <StarryBackground />
 
       {/* Controls */}
@@ -489,6 +629,7 @@ function App() {
             setAccessToken(null);
             setTracks([]);
             setUserProfile(null);
+            setError(null);
           }}
           style={{
             padding: "12px 16px",
@@ -520,6 +661,7 @@ function App() {
             zIndex: 10,
             textAlign: "center",
             backdropFilter: "blur(10px)",
+            maxWidth: "80%",
           }}
         >
           {error}
@@ -599,6 +741,14 @@ function App() {
               </div>
             )}
       </div>
+
+      {/* Debug Panel */}
+      <DebugPanel 
+        tracks={tracks}
+        error={error}
+        userProfile={userProfile}
+        accessToken={accessToken}
+      />
 
       <style>{`
         ${[...Array(10)]
