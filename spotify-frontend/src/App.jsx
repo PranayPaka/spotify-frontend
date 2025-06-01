@@ -205,8 +205,8 @@ const StarryBackground = () => {
 // Login Screen Component
 const LoginScreen = () => {
   const handleLogin = () => {
-    // Redirect to your backend's login endpoint
-    window.location.href = "http://127.0.0.1:5000/login";
+    // Redirect to your Render backend's login endpoint
+    window.location.href = "https://spotify-solar-system-backend.onrender.com/login";
   };
 
   return (
@@ -306,6 +306,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Backend base URL - change this to your Render URL
+  const BACKEND_URL = "https://spotify-solar-system-backend.onrender.com";
+
   useEffect(() => {
     // Check for access token in URL params
     const params = new URLSearchParams(window.location.search);
@@ -331,7 +334,7 @@ function App() {
       try {
         // Fetch user profile
         const profileResponse = await fetch(
-          `http://127.0.0.1:5000/me?access_token=${accessToken}`
+          `${BACKEND_URL}/me?access_token=${accessToken}`
         );
 
         if (profileResponse.ok) {
@@ -344,7 +347,7 @@ function App() {
 
         // Fetch top tracks
         const tracksResponse = await fetch(
-          `http://127.0.0.1:5000/top-tracks?access_token=${accessToken}&time_range=${timeRange}`
+          `${BACKEND_URL}/top-tracks?access_token=${accessToken}&time_range=${timeRange}`
         );
 
         if (!tracksResponse.ok) {
